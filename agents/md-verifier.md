@@ -6,6 +6,14 @@ model: opencode/deepseek-v4.1-flash-free
 
 Read the repository, document and report paths supplied by the parent in its native task prompt. Load `md-verifier` through the skill tool: this is the unchanged original `skillsets_original/md_verifier/SKILL.md`, installed at `.opencode/skills/md-verifier/SKILL.md`. Verify that exact document; do not modify it or generate a replacement.
 
+## Verification order
+
+1. **Fidelity.** Save the full ordered claim inventory, including navigation and nested list items. Assess claims in batches and save each batch with document locations and source evidence. After saving a batch, find the first claim ID without a verdict and continue from it. Once the verdict IDs match the inventory exactly, with one verdict per ID, run the original fidelity helper and save its result.
+2. **Coverage and F-quality.** After saving fidelity, extract the packages, assess them in batches, and map all extracted block IDs. After saving each batch, continue from the first package ID without a verdict. Once the package verdict IDs match the inventory exactly, with one verdict per ID, and every block is mapped, run the original coverage and F-quality helpers and save both results.
+3. **DUS.** Load `evaluate-dus` and start DUS-specific extraction only after all three standard scores are saved. In this same session, verify the inventory of titles, H3-bound texts, paragraphs, Java/Python snippets and all paths/URLs, including paths in other-language fences. For the single helper call, run `PYTHONPATH=.opencode/skills/evaluate-dus python -BP` in the shell, import `get_total_info` from `md_quality_metrics`, and pass all extracted inputs, including `texts`. Preserve its raw output and defects, and assess each applicable qualitative item individually.
+
+Run the original verifier functions in the shell from the target repository with `PYTHONPATH=.opencode/skills/md-verifier python -BP`. Import `codebase_to_blocks`, `calculate_coverage_adjusted_fidelity`, `calculate_correct_verdicts_ratio`, and `calculate_f_quality_score` from `verifier_utils`. Read inputs from the saved inventories and verdicts and use the returned results directly.
+
 ## Preserve the evaluation method
 
 Apply the loaded original criteria exactly. Repository size, limited context, remaining work, and a desire to finish never authorize a substitute criterion. A disclosed approximation is still an invalid evaluation; do not publish its scores as results of the original method.
@@ -25,14 +33,10 @@ Apply the same discipline to claim meaning and qualitative DUS items: assess the
 
 Include a `Method adherence` section in the report: identify the applied original criteria, list every custom script that produced or transformed verdicts, and reference the per-item evidence files. If you discover a proxy-generated verdict list, preserve it as invalid diagnostic evidence, reassess the affected items under the original criteria, then recompute their dependent metrics. Finish that correction before producing a complete receipt; a disclaimer does not validate substituted scores.
 
-## Complete the original verification
-
-Extract every required claim, including each navigation and nested list item; do not exclude the table of contents. Save the ordered full claim inventory and individual verdicts with document locations and source evidence. Assess every package using the original two conditions and map every extracted block. Check inventories against verdict IDs for missing or duplicated items before calculating metrics. These are agent checks, not an external acceptance gate.
-
-Run the original verifier functions in the shell from the target repository with `PYTHONPATH=.opencode/skills/md-verifier python -BP`. Import `codebase_to_blocks`, `calculate_coverage_adjusted_fidelity`, `calculate_correct_verdicts_ratio`, and `calculate_f_quality_score` from `verifier_utils`. Read inputs from the saved inventories and verdicts and use the returned results directly.
-
-Finish claims and original fidelity calculation, then packages and original coverage/F-quality calculations. Load `evaluate-dus` and execute its procedure in this same session. For its unified tool call, run `PYTHONPATH=.opencode/skills/evaluate-dus python -BP` in the shell, import `get_total_info` from `md_quality_metrics`, and pass all extracted inputs, including `texts`, to that function. Before its single helper call, verify complete extraction of titles, H3-bound texts, paragraphs, Java/Python snippets and all paths/URLs, including paths in other-language fences. Preserve raw helper values and documented defects. Evaluate every applicable qualitative criterion individually; do not replace judgments with generic defaults.
+## Report the result
 
 If the original DUS rubric lacks an applicable category, record null with raw value, affected IDs and exact gap. Finish all other checks; propagate undefined to dependent aggregates. Never round uncovered intervals or invent a score. Distinguish rubric gaps from tool errors.
 
-Save the full report, DUS JSON and per-item evidence in files under `.opencode/tmp/`. Include metric statuses, completeness counts, helper provenance and the Method adherence section. Return report/evidence paths and completion status through the native subagent response. Do not return merely because a batch finished. If unable to complete, save progress and state remaining items/errors explicitly; incomplete metrics stay unavailable. No receipt CLI, runtime hook or automatic restart is used.
+Save the full report, DUS JSON and per-item evidence in files under `.opencode/tmp/`. Include metric statuses, completeness counts, helper provenance and the Method adherence section. Return report/evidence paths and completion status through the native subagent response after completing the stages.
+
+If an observed failure blocks further work after available recovery, save a partial report with the blocked operation, the observed error and the remaining IDs. Keep completed scores and leave unfinished metrics unavailable. While there are unassessed IDs and the current stage can proceed, continue the next batch in this session.
